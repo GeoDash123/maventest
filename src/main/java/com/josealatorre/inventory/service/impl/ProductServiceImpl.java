@@ -3,6 +3,7 @@ package com.josealatorre.inventory.service.impl;
 import com.josealatorre.inventory.exception.ProductNotFoundException;
 import com.josealatorre.inventory.model.Product;
 import com.josealatorre.inventory.repository.ProductRepository;
+import com.josealatorre.inventory.service.NotificationService;
 import com.josealatorre.inventory.service.ProductService;
 import org.springframework.stereotype.Service;
 
@@ -12,9 +13,11 @@ import java.util.List;
 public class ProductServiceImpl implements ProductService {
 
     private final ProductRepository repository;
+    private final NotificationService notificationService;
 
-    public ProductServiceImpl(ProductRepository repository) {
+    public ProductServiceImpl(ProductRepository repository, NotificationService notificationService) {
         this.repository = repository;
+        this.notificationService = notificationService;
     }
 
     @Override
@@ -37,7 +40,13 @@ public class ProductServiceImpl implements ProductService {
     public Product updateStock(Long id, Integer stock) {
         Product product = findById(id);
         product.setStock(stock);
-        return repository.save(product);
+        Product saved = repository.save(product);
+
+        if (saved.isBelowMinimum()) {
+            notificationService.alertLowStock(saved);
+        }
+
+        return saved;
     }
 
     @Override

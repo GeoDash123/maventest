@@ -19,4 +19,19 @@ public class Product {
     private String name;
 
     private Integer stock;
+
+    /**
+     * Cantidad mínima permitida en inventario antes de considerarse
+     * stock bajo. Regla de negocio: si stock < minStock, se debe
+     * disparar una alerta (ver ProductServiceImpl.updateStock).
+     */
+    private Integer minStock;
+
+    /**
+     * Regla de negocio central: determina si el stock actual del
+     * producto está por debajo del mínimo permitido.
+     */
+    public boolean isBelowMinimum() {
+        return stock != null && minStock != null && stock < minStock;
+    }
 }

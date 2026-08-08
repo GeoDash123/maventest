@@ -11,6 +11,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -35,7 +36,7 @@ class ProductControllerTest {
     @Test
     void shouldCreateProduct() throws Exception {
 
-        Product product = new Product(null, "Laptop", 10);
+        Product product = new Product(null, "Laptop", 10, 3);
 
         mockMvc.perform(post("/products")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -50,7 +51,7 @@ class ProductControllerTest {
     void shouldReturnProductById() throws Exception {
 
         Product saved = repository.save(
-                new Product(null, "Mouse", 20));
+                new Product(null, "Mouse", 20, 5));
 
         mockMvc.perform(get("/products/" + saved.getId()))
                 .andExpect(status().isOk())
@@ -63,13 +64,30 @@ class ProductControllerTest {
     void shouldDeleteProduct() throws Exception {
 
         Product saved = repository.save(
-                new Product(null, "Keyboard", 15));
+                new Product(null, "Keyboard", 15, 5));
 
         mockMvc.perform(delete("/products/" + saved.getId()))
                 .andExpect(status().isNoContent());
 
     }
 
+    @Test
+    void shouldReflectLowStockWhenUpdatedBelowMinimum() throws Exception {
 
+        // minStock = 10
+        Product saved = repository.save(
+                new Product(null, "Monitor", 20, 10));
+
+        // Actualizamos el stock por debajo del mínimo a través del endpoint real
+        mockMvc.perform(put("/products/" + saved.getId() + "/stock")
+                        .param("stock", "4"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.stock").value(4))
+                .andExpect(jsonPath("$.minStock").value(10));
+
+        // Confirmamos en la capa de persistencia real que quedó por debajo del mínimo
+        Product persisted = repository.findById(saved.getId()).orElseThrow();
+        assertTrue(persisted.isBelowMinimum());
+    }
 
 }
