@@ -3,6 +3,7 @@ package com.josealatorre.inventory.service.impl;
 import com.josealatorre.inventory.exception.ProductNotFoundException;
 import com.josealatorre.inventory.model.Product;
 import com.josealatorre.inventory.repository.ProductRepository;
+import com.josealatorre.inventory.service.NotificationService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -20,15 +21,18 @@ class ProductServiceImplTest {
     @Mock
     private ProductRepository repository;
 
+    @Mock
+    private NotificationService notificationService;
+
     @InjectMocks
     private ProductServiceImpl service;
 
     @Test
     void shouldSaveProduct() {
 
-        Product product = new Product(null, "Laptop", 10);
+        Product product = new Product(null, "Laptop", 10, 3);
 
-        Product savedProduct = new Product(1L, "Laptop", 10);
+        Product savedProduct = new Product(1L, "Laptop", 10, 3);
 
         when(repository.save(product)).thenReturn(savedProduct);
 
@@ -45,7 +49,7 @@ class ProductServiceImplTest {
     @Test
     void shouldFindProductById() {
 
-        Product product = new Product(1L, "Mouse", 20);
+        Product product = new Product(1L, "Mouse", 20, 5);
 
         when(repository.findById(1L))
                 .thenReturn(Optional.of(product));
@@ -72,7 +76,7 @@ class ProductServiceImplTest {
     @Test
     void shouldUpdateStock() {
 
-        Product product = new Product(1L, "Keyboard", 5);
+        Product product = new Product(1L, "Keyboard", 5, 10);
 
         when(repository.findById(1L))
                 .thenReturn(Optional.of(product));
@@ -88,9 +92,47 @@ class ProductServiceImplTest {
     }
 
     @Test
+    void shouldTriggerAlertWhenStockFallsBelowMinimum() {
+
+        // Producto con minStock = 10
+        Product product = new Product(1L, "Keyboard", 20, 10);
+
+        when(repository.findById(1L))
+                .thenReturn(Optional.of(product));
+        when(repository.save(any(Product.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Actualizamos el stock a 5, que queda por debajo del mínimo (10)
+        Product updated = service.updateStock(1L, 5);
+
+        assertTrue(updated.isBelowMinimum());
+        // Verificamos que el servicio de notificaciones fue invocado exactamente una vez
+        verify(notificationService, times(1)).alertLowStock(updated);
+    }
+
+    @Test
+    void shouldNotTriggerAlertWhenStockIsAtOrAboveMinimum() {
+
+        // Producto con minStock = 10
+        Product product = new Product(1L, "Keyboard", 5, 10);
+
+        when(repository.findById(1L))
+                .thenReturn(Optional.of(product));
+        when(repository.save(any(Product.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Actualizamos el stock a 15, que está por encima del mínimo (10)
+        Product updated = service.updateStock(1L, 15);
+
+        assertFalse(updated.isBelowMinimum());
+        // El servicio de notificaciones NUNCA debe ser invocado en este caso
+        verify(notificationService, never()).alertLowStock(any(Product.class));
+    }
+
+    @Test
     void shouldDeleteProduct() {
 
-        Product product = new Product(1L, "Monitor", 2);
+        Product product = new Product(1L, "Monitor", 2, 5);
 
         when(repository.findById(1L))
                 .thenReturn(Optional.of(product));
